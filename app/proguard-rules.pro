@@ -19,6 +19,35 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+#指定代码的压缩级别
+-optimizationpasses 5
+
+#包明不混合大小写
+-dontusemixedcaseclassnames
+
+#不去忽略非公共的库类
+-dontskipnonpubliclibraryclasses
+
+-dontskipnonpubliclibraryclassmembers
+
+ #预校验
+-dontpreverify
+
+##记录生成的日志数据,gradle build时在本项目根目录输出##
+#apk 包内所有 class 的内部结构
+-dump class_files.txt
+#未混淆的类和成员
+-printseeds seeds.txt
+#列出从 apk 中删除的代码
+-printusage unused.txt
+#混淆前后的映射
+-printmapping mapping.txt
+########记录生成的日志数据，gradle build时 在本项目根目录输出-end#####
+
+ # 混淆时所采用的算法
+-optimizations !code/simplification/arithmetic,!field/*,!class/merging/*
+
+## Retrofit2 ##
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 # Platform calls Class.forName on types which do not exist on Android to determine platform.
@@ -29,13 +58,14 @@
 -keepattributes Signature
 # Retain declared checked exceptions for use by a Proxy instance.
 -keepattributes Exceptions
-
+## yanzhenjie:permission ##
 -keepclassmembers class ** {
     @com.yanzhenjie.permission.PermissionYes <methods>;
 }
 -keepclassmembers class ** {
     @com.yanzhenjie.permission.PermissionNo <methods>;
 }
+## RxCache ##
 -dontwarn io.rx_cache2.internal.**
 -keepclassmembers enum io.rx_cache2.Source { *; }
 -keepclassmembernames class * { @io.rx_cache2.* <methods>; }
@@ -121,6 +151,7 @@
     public <init>(android.content.Context, android.util.AttributeSet);
     public <init>(android.content.Context, android.util.AttributeSet, int);
     public void set*(...);
+    public void get*(...);
 }
 
 #保持 Parcelable 不被混淆
@@ -165,22 +196,51 @@
    public *;
 }
 
-#指定代码的压缩级别
--optimizationpasses 5
+## 保持自定义实体类不被混淆
+-keep class com.u91porn.data.model.** { *; }
 
-#包明不混合大小写
--dontusemixedcaseclassnames
+## greenDao ##
+-keepclassmembers class * extends org.greenrobot.greendao.AbstractDao {
+public static java.lang.String TABLENAME;
+}
+-keep class **$Properties
 
-#不去忽略非公共的库类
--dontskipnonpubliclibraryclasses
+# If you do not use SQLCipher:
+-dontwarn org.greenrobot.greendao.database.**
+# If you do not use Rx:
+-dontwarn rx.**
 
--dontskipnonpubliclibraryclassmembers
+-keepclassmembers class * extends org.greenrobot.greendao.AbstractDao {
+    public static void dropTable(org.greenrobot.greendao.database.Database, boolean);
+    public static void createTable(org.greenrobot.greendao.database.Database, boolean);
+}
+## Glide ###
+-keep public class * implements com.bumptech.glide.module.GlideModule
+-keep public class * extends com.bumptech.glide.module.AppGlideModule
+-keep public enum com.bumptech.glide.load.resource.bitmap.ImageHeaderParser$** {
+  **[] $VALUES;
+  public *;
+}
+### EventBus ##
+-keepattributes *Annotation*
+-keepclassmembers class ** {
+    @org.greenrobot.eventbus.Subscribe <methods>;
+}
+-keep enum org.greenrobot.eventbus.ThreadMode { *; }
 
- #预校验
--dontpreverify
-
- #混淆时是否记录日志
--verbose
-
- # 混淆时所采用的算法
--optimizations !code/simplification/arithmetic,!field/*,!class/merging/*
+# Only required if you use AsyncExecutor
+-keepclassmembers class * extends org.greenrobot.eventbus.util.ThrowableFailureEvent {
+    <init>(java.lang.Throwable);
+}
+### BaseRecyclerViewAdapterHelper ###
+-keep class com.chad.library.adapter.** {
+*;
+}
+-keep public class * extends com.chad.library.adapter.base.BaseQuickAdapter
+-keep public class * extends com.chad.library.adapter.base.BaseViewHolder
+-keepclassmembers  class **$** extends com.chad.library.adapter.base.BaseViewHolder {
+     <init>(...);
+}
+### Safe Java-JS WebView Bridge ###
+-keepclassmembers class com.u91porn.data.model.HostJsScope$RetJavaObj{ *; }
+-keepclassmembers class com.u91porn.data.model.HostJsScope{ *; }

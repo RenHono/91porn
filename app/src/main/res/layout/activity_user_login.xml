@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:fresco="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
     android:orientation="vertical"
+    android:background="@color/common_background"
     tools:context="com.u91porn.ui.user.UserLoginActivity">
 
-    <include layout="@layout/toolbar_layout" />
+    <include layout="@layout/layout_toolbar" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,16 +21,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="帐号"
-            android:singleLine="true"
-            android:inputType="textEmailAddress" />
+            android:theme="@style/MyEditText"
+            android:inputType="textEmailAddress"
+            android:singleLine="true" />
 
         <EditText
             android:id="@+id/et_password"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="密码"
-            android:singleLine="true"
-            android:inputType="textPassword" />
+            android:theme="@style/MyEditText"
+            android:inputType="textPassword"
+            android:singleLine="true" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -46,18 +46,15 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1000"
                 android:hint="验证码"
-                android:singleLine="true"
-                android:inputType="number" />
+                android:theme="@style/MyEditText"
+                android:maxLength="4"
+                android:inputType="number"
+                android:singleLine="true" />
 
-            <com.facebook.drawee.view.SimpleDraweeView
+            <ImageView
                 android:id="@+id/wb_captcha"
                 android:layout_width="110dp"
-                android:layout_height="match_parent"
-                fresco:progressBarAutoRotateInterval="5000"
-                fresco:progressBarImage="@drawable/icon_progress_bar"
-                fresco:progressBarImageScaleType="centerInside"
-                fresco:retryImage="@drawable/retry"
-                fresco:retryImageScaleType="centerCrop" />
+                android:layout_height="match_parent" />
         </LinearLayout>
 
 
@@ -65,19 +62,25 @@
             android:id="@+id/bt_user_login"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="登录" />
+            android:layout_marginBottom="10dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/button_selector"
+            android:text="登     录"
+            android:textColor="@color/common_always_white_text_color"
+            android:textSize="20sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            >
+            android:orientation="horizontal">
 
             <CheckBox
                 android:id="@+id/cb_remenber_password"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:textColor="@color/common_black_white_text_color"
+                android:theme="@style/MyCheckBox"
                 android:text="记住密码" />
 
             <CheckBox
@@ -85,6 +88,8 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:textColor="@color/common_black_white_text_color"
+                android:theme="@style/MyCheckBox"
                 android:text="自动登录" />
         </LinearLayout>
 
@@ -93,15 +98,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
+            android:textColor="@color/common_black_white_text_color"
             android:text="Tips：验证码是非必须的，如果加载不出来，请填写任意4位数字即可" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
-            android:textStyle="bold"
             android:text="特别注意：不要在电脑和手机上同时登录,不确定请不要勾选自动登录,否则封号！！！"
-            android:textColor="@color/red" />
+            android:textColor="@color/colorPrimary"
+            android:textStyle="bold" />
     </LinearLayout>
 
 </LinearLayout>

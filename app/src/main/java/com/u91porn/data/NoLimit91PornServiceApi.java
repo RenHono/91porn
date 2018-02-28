@@ -1,13 +1,6 @@
 package com.u91porn.data;
 
-import com.u91porn.MyApplication;
-import com.u91porn.utils.Constants;
-import com.u91porn.utils.HeaderUtils;
-
 import io.reactivex.Observable;
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Response;
 import retrofit2.http.Field;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
@@ -15,7 +8,6 @@ import retrofit2.http.Header;
 import retrofit2.http.Headers;
 import retrofit2.http.POST;
 import retrofit2.http.Query;
-import retrofit2.http.Url;
 
 /**
  * @author flymegoc
@@ -106,6 +98,20 @@ public interface NoLimit91PornServiceApi {
     @GET("/my_favour.php")
     Observable<String> myFavorite(@Query("page") int page, @Header("Referer") String referer);
 
+    /**删除我的收藏
+     * rvid=250198&removfavour=Remove+Favorite&x=45&y=19
+     * @param rvid 要删除的视频id
+     * @param removFavour 标志
+     * @param x 点击x
+     * @param y 点击y
+     * @param referer rf
+     * @return ob
+     */
+    @FormUrlEncoded
+    @POST("/my_favour.php")
+    Observable<String> deleteMyFavorite(@Field("rvid") String rvid,@Field("removfavour") String removFavour,@Field("x") int x,@Field("y") int y, @Header("Referer") String referer);
+
+
     /**
      * 收藏视频
      *
@@ -118,15 +124,6 @@ public interface NoLimit91PornServiceApi {
      */
     @GET("/ajax/myajaxphp.php")
     Observable<String> favoriteVideo(@Query("cpaint_function") String cpaintFunction, @Query("cpaint_argument[]") String uId, @Query("cpaint_argument[]") String videoId, @Query("cpaint_argument[]") String ownerId, @Query("cpaint_response_type") String responseType, @Header("Referer") String referer);
-
-    /**
-     * 检查更新
-     *
-     * @param url 链接
-     * @return ob
-     */
-    @GET
-    Observable<String> checkUpdate(@Url String url);
 
     /**
      * //http://91.91p18.space/show_comments2.php?VID=247965&start=1&comment_per_page=20

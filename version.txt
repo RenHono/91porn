@@ -1,12 +1,11 @@
 {
-"apkDownloadUrl": "https://raw.githubusercontent.com/techGay/91porn/master/apk/app-beta-v1.0.8.apk",
-"updateMessage": "注意：自动更新升级错误的请到自己手机存储卡的下载目录（download）找到安装包手动安装升级到v1.0.8版本即可\n
-                  1 .完善exoplayer播放引擎\n
-                  2 .修复首次默认播放引擎显示错误问题\n
-                  3 .修复自动更新安装出错问题（以往版本下载完成后可到下载目录（download）下手动点击安装包安装）\n
-                  4 .新增视频搜索功能\n
-                  5 .新增查看作者更多视频（播放界面点击视频作者名字）\n
-                  6 .启用混淆打包，减少安装包大小",
-"versionCode": 9,
-"versionName": "1.0.8"
+"apkDownloadUrl": "https://bitbucket.org/techGay/91porn/downloads/app-beta-v1.1.4.apk",
+"updateMessage": "此版本修复优化为主，预计年前最后一版\n
+                  1. 修复缩放图片问题（之前搞错了，并未修复成功）\n
+                  2. 修复底部导航栏切换概率混乱及崩溃问题\n
+                  3. 地址设置增加测试和提示\n
+                  4. 其他细小bug以及优化改进
+",
+"versionCode": 15,
+"versionName": "1.1.4"
 }

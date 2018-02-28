@@ -17,27 +17,23 @@ import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.helper.loadviewhelper.help.OnLoadViewListener;
 import com.helper.loadviewhelper.load.LoadViewHelper;
 import com.sdsmdg.tastytoast.TastyToast;
-import com.trello.rxlifecycle2.LifecycleTransformer;
-import com.u91porn.MyApplication;
 import com.u91porn.R;
 import com.u91porn.adapter.FavoriteAdapter;
 import com.u91porn.data.NoLimit91PornServiceApi;
-import com.u91porn.data.cache.CacheProviders;
+import com.u91porn.data.dao.DataBaseManager;
 import com.u91porn.data.model.UnLimit91PornItem;
-import com.u91porn.data.model.User;
 import com.u91porn.ui.MvpActivity;
+import com.u91porn.utils.DialogUtils;
 import com.u91porn.utils.HeaderUtils;
-import com.u91porn.utils.Keys;
 import com.u91porn.utils.LoadHelperUtils;
 import com.u91porn.utils.SPUtils;
+import com.u91porn.utils.constants.Keys;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import io.objectbox.Box;
-import io.rx_cache2.Reply;
 
 /**
  * @author flymegoc
@@ -52,34 +48,23 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
     SwipeRefreshLayout contentView;
 
     private FavoriteAdapter mUnLimit91Adapter;
-    private List<UnLimit91PornItem> mUnLimit91PornItemList;
-    private CacheProviders cacheProviders = MyApplication.getInstace().getCacheProviders();
 
     private LoadViewHelper helper;
+    private AlertDialog deleteAlertDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_favorite);
         ButterKnife.bind(this);
-        setTitle(R.string.my_collect);
-
-        setSupportActionBar(toolbar);
-
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-
-        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onBackPressed();
-            }
-        });
+        deleteAlertDialog = DialogUtils.initLodingDialog(this, "删除中，请稍后...");
+        initToolBar(toolbar);
         toolbar.setContentInsetStartWithNavigation(0);
 
         // Setup contentView == SwipeRefreshView
         contentView.setOnRefreshListener(this);
 
-        mUnLimit91PornItemList = new ArrayList<>();
+        List<UnLimit91PornItem> mUnLimit91PornItemList = new ArrayList<>();
         mUnLimit91Adapter = new FavoriteAdapter(R.layout.item_right_menu_delete, mUnLimit91PornItemList);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -100,8 +85,12 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
                 SwipeItemLayout swipeItemLayout = (SwipeItemLayout) view.getParent();
                 swipeItemLayout.close();
                 if (view.getId() == R.id.right_menu_delete) {
-                    showMessage("暂不支持删除",TastyToast.WARNING);
-                    //presenter.deleteFavorite(position, (UnLimit91PornItem) adapter.getItem(position));
+                    UnLimit91PornItem unLimit91PornItem = (UnLimit91PornItem) adapter.getItem(position);
+                    if (unLimit91PornItem == null || unLimit91PornItem.getVideoResult() == null) {
+                        showMessage("信息错误，无法删除", TastyToast.WARNING);
+                        return;
+                    }
+                    presenter.deleteFavorite(unLimit91PornItem.getVideoResult().getVideoId());
                 }
             }
         });
@@ -129,10 +118,10 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
     @NonNull
     @Override
     public FavoritePresenter createPresenter() {
-        Box<UnLimit91PornItem> unLimit91PornItemBox = MyApplication.getInstace().getBoxStore().boxFor(UnLimit91PornItem.class);
-        NoLimit91PornServiceApi noLimit91PornServiceApi = MyApplication.getInstace().getNoLimit91PornService();
-        User user = MyApplication.getInstace().getUser();
-        return new FavoritePresenter(unLimit91PornItemBox, noLimit91PornServiceApi, cacheProviders, user,provider);
+        getActivityComponent().inject(this);
+        DataBaseManager dataBaseManager = DataBaseManager.getInstance();
+        NoLimit91PornServiceApi noLimit91PornServiceApi = apiManager.getNoLimit91PornService();
+        return new FavoritePresenter(dataBaseManager, noLimit91PornServiceApi, cacheProviders, user, provider);
     }
 
 
@@ -152,7 +141,8 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.menu_favorite_export) {
-            showExportDialog();
+            showMessage("暂不支持导出", TastyToast.WARNING);
+            //showExportDialog();
             return true;
         }
 
@@ -182,14 +172,7 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
     @Override
     public void setFavoriteData(List<UnLimit91PornItem> unLimit91PornItemList) {
         SPUtils.put(this, Keys.KEY_SP_USER_FAVORITE_NEED_REFRESH, false);
-        mUnLimit91Adapter.loadMoreComplete();
         mUnLimit91Adapter.setNewData(unLimit91PornItemList);
-        mUnLimit91Adapter.disableLoadMoreIfNotFullPage(recyclerView);
-    }
-
-    @Override
-    public void deleteFavoriteSucc(int position) {
-        mUnLimit91Adapter.remove(position);
     }
 
     @Override
@@ -199,19 +182,44 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
 
     @Override
     public void loadMoreFailed() {
-        showMessage("加载更多失败",TastyToast.ERROR);
+        showMessage("加载更多失败", TastyToast.ERROR);
         mUnLimit91Adapter.loadMoreFail();
     }
 
     @Override
     public void noMoreData() {
         mUnLimit91Adapter.loadMoreEnd(true);
-        showMessage("没有更多数据了",TastyToast.INFO);
+        showMessage("没有更多数据了", TastyToast.INFO);
     }
 
     @Override
     public void setMoreData(List<UnLimit91PornItem> unLimit91PornItemList) {
         mUnLimit91Adapter.addData(unLimit91PornItemList);
+    }
+
+    @Override
+    public void deleteFavoriteSucc(String message) {
+        //标志删除失败，下次加载服务器数据，清空缓存
+        SPUtils.put(this, Keys.KEY_SP_USER_FAVORITE_NEED_REFRESH, true);
+        dismissDialog();
+        showMessage(message, TastyToast.SUCCESS);
+    }
+
+    @Override
+    public void deleteFavoriteError(String message) {
+        dismissDialog();
+        showMessage(message, TastyToast.ERROR);
+    }
+
+    @Override
+    public void showDeleteDialog() {
+        deleteAlertDialog.show();
+    }
+
+    private void dismissDialog() {
+        if (deleteAlertDialog != null && deleteAlertDialog.isShowing() && !isFinishing()) {
+            deleteAlertDialog.dismiss();
+        }
     }
 
     @Override
@@ -224,7 +232,7 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
     @Override
     public void showLoading(boolean pullToRefresh) {
         helper.showLoading();
-        LoadHelperUtils.setLoadingText(helper.getLoadIng(),R.id.tv_loading_text,"拼命加载中...");
+        LoadHelperUtils.setLoadingText(helper.getLoadIng(), R.id.tv_loading_text, "拼命加载中...");
         contentView.setEnabled(false);
     }
 
@@ -236,8 +244,8 @@ public class FavoriteActivity extends MvpActivity<FavoriteView, FavoritePresente
     }
 
     @Override
-    public void showMessage(String msg,int type) {
-        super.showMessage(msg,type);
+    public void showMessage(String msg, int type) {
+        super.showMessage(msg, type);
     }
 
     @Override

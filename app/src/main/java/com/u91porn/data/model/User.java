@@ -60,4 +60,34 @@ public class User {
     public void setLogin(boolean login) {
         isLogin = login;
     }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "userName='" + userName + '\'' +
+                ", isLogin=" + isLogin +
+                ", userId=" + userId +
+                ", status='" + status + '\'' +
+                ", lastLoginTime='" + lastLoginTime + '\'' +
+                ", lastLoginIP='" + lastLoginIP + '\'' +
+                '}';
+    }
+
+    public void copyProperties(User toUser) {
+        toUser.setUserName(getUserName());
+        toUser.setUserId(getUserId());
+        toUser.setLogin(isLogin());
+        toUser.setLastLoginIP(getLastLoginIP());
+        toUser.setLastLoginTime(getLastLoginTime());
+        toUser.setStatus(getStatus());
+    }
+
+    public void cleanProperties() {
+        this.setUserName("");
+        this.setUserId(0);
+        this.setLogin(false);
+        this.setLastLoginIP("");
+        this.setLastLoginTime("");
+        this.setStatus("");
+    }
 }

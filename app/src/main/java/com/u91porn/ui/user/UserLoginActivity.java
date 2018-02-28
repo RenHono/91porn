@@ -1,5 +1,6 @@
 package com.u91porn.ui.user;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -14,33 +15,38 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 
-import com.facebook.drawee.backends.pipeline.Fresco;
-import com.facebook.drawee.interfaces.DraweeController;
-import com.facebook.drawee.view.SimpleDraweeView;
-import com.facebook.imagepipeline.core.ImagePipeline;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.orhanobut.logger.Logger;
+import com.qmuiteam.qmui.util.QMUIKeyboardHelper;
 import com.sdsmdg.tastytoast.TastyToast;
-import com.trello.rxlifecycle2.LifecycleTransformer;
-import com.u91porn.MyApplication;
 import com.u91porn.R;
 import com.u91porn.data.NoLimit91PornServiceApi;
+import com.u91porn.data.model.User;
 import com.u91porn.ui.MvpActivity;
-import com.u91porn.utils.Constants;
+import com.u91porn.ui.favorite.FavoriteActivity;
+import com.u91porn.ui.porn91video.search.SearchActivity;
+import com.u91porn.ui.setting.SettingActivity;
+import com.u91porn.utils.AddressHelper;
 import com.u91porn.utils.DialogUtils;
+import com.u91porn.utils.GlideApp;
 import com.u91porn.utils.HeaderUtils;
-import com.u91porn.utils.Keys;
 import com.u91porn.utils.SPUtils;
 import com.u91porn.utils.UserHelper;
+import com.u91porn.utils.constants.Keys;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import io.rx_cache2.Reply;
 
 /**
  * @author flymegoc
  */
 public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> implements UserView {
+
+    public static final int LOGIN_ACTION_FOR_LOOK_MY_FAVORITE = 1;
+    public static final int LOGIN_ACTION_FOR_SEARCH_91PRON_VIDEO = 2;
 
     private static final String TAG = UserLoginActivity.class.getSimpleName();
     @BindView(R.id.et_account)
@@ -50,7 +56,7 @@ public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> impl
     @BindView(R.id.et_captcha)
     EditText etCaptcha;
     @BindView(R.id.wb_captcha)
-    SimpleDraweeView simpleDraweeView;
+    ImageView simpleDraweeView;
     @BindView(R.id.bt_user_login)
     Button btUserLogin;
     @BindView(R.id.toolbar)
@@ -60,27 +66,21 @@ public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> impl
     @BindView(R.id.cb_auto_login)
     CheckBox cbAutoLogin;
 
-    private NoLimit91PornServiceApi noLimit91PornServiceApi = MyApplication.getInstace().getNoLimit91PornService();
     private AlertDialog alertDialog;
     private String username;
     private String password;
+    private int loginForAction;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_login);
         ButterKnife.bind(this);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onBackPressed();
-            }
-        });
-        toolbar.setContentInsetStartWithNavigation(0);
-        setTitle("用户登录（仅本次有效）");
-        loadCaptcha();
+        initToolBar(toolbar);
+        loginForAction = getIntent().getIntExtra(Keys.KEY_INTENT_LOGIN_FOR_ACTION, 0);
+        if (!AddressHelper.getInstance().isEmpty(Keys.KEY_SP_CUSTOM_ADDRESS)) {
+            loadCaptcha();
+        }
         btUserLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -159,6 +159,7 @@ public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> impl
             showMessage("请填写验证码", TastyToast.INFO);
             return;
         }
+        QMUIKeyboardHelper.hideKeyboard(getCurrentFocus());
         presenter.login(username, password, f, f2, captcha, acl, x, y, HeaderUtils.getUserHeader("login"));
     }
 
@@ -166,40 +167,49 @@ public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> impl
      * 加载验证码，目前似乎是非必须，不填也是可以登录的
      */
     private void loadCaptcha() {
-        String url;
-        if (TextUtils.isEmpty(MyApplication.getInstace().getHost())) {
-            url = Constants.BASE_URL + "captcha.php";
-        } else {
-            url = MyApplication.getInstace().getHost() + "captcha.php";
-        }
+        String url = AddressHelper.getInstance().getVideo91PornAddress() + "captcha.php";
 
         Logger.t(TAG).d("验证码链接：" + url);
         Uri uri = Uri.parse(url);
-        ImagePipeline imagePipeline = Fresco.getImagePipeline();
-
-        imagePipeline.evictFromCache(uri);
-        simpleDraweeView.setImageURI(uri);
-
-        //创建DraweeController
-        DraweeController controller = Fresco.newDraweeControllerBuilder()
-                //加载的图片URI地址
-                .setUri(uri)
-                //设置点击重试是否开启
-                .setTapToRetryEnabled(true)
-                //设置旧的Controller
-                .setOldController(simpleDraweeView.getController())
-                //构建
-                .build();
-
-        //设置DraweeController
-        simpleDraweeView.setController(controller);
+        GlideApp.with(this).load(uri).placeholder(R.drawable.placeholder).transition(new DrawableTransitionOptions().crossFade(300)).diskCacheStrategy(DiskCacheStrategy.NONE).skipMemoryCache(true).into(simpleDraweeView);
     }
 
     @NonNull
     @Override
     public UserPresenter createPresenter() {
+        getActivityComponent().inject(this);
+        NoLimit91PornServiceApi noLimit91PornServiceApi = null;
+        if (!AddressHelper.getInstance().isEmpty(Keys.KEY_SP_CUSTOM_ADDRESS)) {
+            noLimit91PornServiceApi = apiManager.getNoLimit91PornService();
+        } else {
+            showNeedSetAddressFirstDialog();
+        }
         return new UserPresenter(noLimit91PornServiceApi, provider);
     }
+
+    private void showNeedSetAddressFirstDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MyDialogTheme);
+        builder.setTitle("温馨提示");
+        builder.setMessage("还未设置91porn视频地址,无法登录或注册，现在去设置？");
+        builder.setPositiveButton("去设置", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Intent intent = new Intent(context, SettingActivity.class);
+                startActivityWithAnimotion(intent);
+                finish();
+            }
+        });
+        builder.setNegativeButton("退出", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+                onBackPressed();
+            }
+        });
+        builder.setCancelable(false);
+        builder.show();
+    }
+
 
     @Override
     public boolean onSupportNavigateUp() {
@@ -208,11 +218,26 @@ public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> impl
     }
 
     @Override
-    public void loginSuccess() {
+    public void loginSuccess(User user) {
+        user.copyProperties(this.user);
         saveUserInfoPrf(username, password);
         showMessage("登录成功", TastyToast.SUCCESS);
-        setResult(RESULT_OK);
-        onBackPressed();
+        switch (loginForAction) {
+            case LOGIN_ACTION_FOR_LOOK_MY_FAVORITE:
+                Intent intent = new Intent(this, FavoriteActivity.class);
+                startActivityWithAnimotion(intent);
+                finish();
+                break;
+            case LOGIN_ACTION_FOR_SEARCH_91PRON_VIDEO:
+                Intent intentSearch = new Intent(this, SearchActivity.class);
+                startActivityWithAnimotion(intentSearch);
+                finish();
+                break;
+            default:
+                setResult(RESULT_OK);
+                onBackPressed();
+        }
+
     }
 
     private void saveUserInfoPrf(String username, String password) {
@@ -237,8 +262,8 @@ public class UserLoginActivity extends MvpActivity<UserView, UserPresenter> impl
     }
 
     @Override
-    public void registerSuccess() {
-
+    public void registerSuccess(User user) {
+        user.copyProperties(this.user);
     }
 
     @Override

@@ -22,23 +22,27 @@ import android.view.ViewGroup;
 import com.aitsuki.swipe.SwipeItemLayout;
 import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.liulishuo.filedownloader.BaseDownloadTask;
-import com.liulishuo.filedownloader.model.FileDownloadStatus;
 import com.sdsmdg.tastytoast.TastyToast;
-import com.u91porn.MyApplication;
 import com.u91porn.R;
 import com.u91porn.adapter.DownloadVideoAdapter;
+import com.u91porn.data.dao.DataBaseManager;
 import com.u91porn.data.model.UnLimit91PornItem;
+import com.u91porn.service.DownloadVideoService;
 import com.u91porn.ui.MvpFragment;
+import com.u91porn.utils.AppCacheUtils;
 import com.u91porn.utils.DownloadManager;
+import com.u91porn.utils.SPUtils;
+import com.u91porn.utils.constants.Keys;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.inject.Inject;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
-import io.objectbox.Box;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -53,8 +57,9 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
     Unbinder unbinder;
 
     private DownloadVideoAdapter mDownloadAdapter;
-    private Box<UnLimit91PornItem> unLimit91PornItemBox = MyApplication.getInstace().getBoxStore().boxFor(UnLimit91PornItem.class);
+    private boolean isFoucesRefresh = false;
 
+    @Inject
     public FinishedFragment() {
         // Required empty public constructor
     }
@@ -68,9 +73,10 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
     @NonNull
     @Override
     public DownloadPresenter createPresenter() {
-        DownloadActivity downloadActivity = (DownloadActivity) getActivity();
-        Box<UnLimit91PornItem> unLimit91PornItemBox = MyApplication.getInstace().getBoxStore().boxFor(UnLimit91PornItem.class);
-        return new DownloadPresenter(unLimit91PornItemBox, downloadActivity.provider);
+        getActivityComponent().inject(this);
+
+        File videoCacheDir = AppCacheUtils.getVideoCacheDir(getContext());
+        return new DownloadPresenter(DataBaseManager.getInstance(), provider, httpProxyCacheServer, videoCacheDir);
     }
 
     @Override
@@ -95,7 +101,7 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
             @Override
             public void onItemChildClick(BaseQuickAdapter adapter, View view, int position) {
                 UnLimit91PornItem unLimit91PornItem = (UnLimit91PornItem) adapter.getItem(position);
-                if (view.getId() == R.id.right_menu_delete) {
+                if (view.getId() == R.id.right_menu_delete && unLimit91PornItem != null) {
                     SwipeItemLayout swipeItemLayout = (SwipeItemLayout) view.getParent();
                     swipeItemLayout.close();
                     File file = new File(unLimit91PornItem.getDownLoadPath());
@@ -112,7 +118,7 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
     }
 
     private void showDeleteFileDialog(final UnLimit91PornItem unLimit91PornItem) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("提示");
         builder.setMessage("是否连同删除本地文件？");
         builder.setNegativeButton("否", new DialogInterface.OnClickListener() {
@@ -142,7 +148,7 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
         if (file.exists()) {
             Uri uri;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                uri = FileProvider.getUriForFile(getActivity().getApplicationContext(), "com.u91porn.fileprovider", file);
+                uri = FileProvider.getUriForFile(context.getApplicationContext(), "com.u91porn.fileprovider", file);
             } else {
                 uri = Uri.fromFile(file);
             }
@@ -152,7 +158,7 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
             intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            PackageManager pm = getContext().getPackageManager();
+            PackageManager pm = context.getPackageManager();
             ComponentName cn = intent.resolveActivity(pm);
             if (cn == null) {
                 showMessage("你手机上未安装任何可以播放此视频的播放器！", TastyToast.INFO);
@@ -166,14 +172,21 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
 
 
     private void showReDownloadFileDialog(final UnLimit91PornItem unLimit91PornItem) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("提示");
         builder.setMessage("文件不存在，可能已经被删除，要重新下载？");
         builder.setNegativeButton("取消", null);
         builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                presenter.downloadVideo(unLimit91PornItem);
+                boolean isDownloadNeedWifi = (boolean) SPUtils.get(getContext(), Keys.KEY_SP_DOWNLOAD_VIDEO_NEED_WIFI, false);
+                unLimit91PornItem.setDownloadId(0);
+                unLimit91PornItem.setSoFarBytes(0);
+                DataBaseManager.getInstance().update(unLimit91PornItem);
+                presenter.downloadVideo(unLimit91PornItem, isDownloadNeedWifi, true);
+                isFoucesRefresh = true;
+                Intent intent = new Intent(getContext(), DownloadVideoService.class);
+                context.startService(intent);
             }
         });
         builder.show();
@@ -206,13 +219,14 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
     }
 
     @Override
-    public void blockComplete(BaseDownloadTask task) {
-
+    public void complete(BaseDownloadTask task) {
+        presenter.loadFinishedData();
     }
 
     @Override
     public void update(BaseDownloadTask task) {
-        if (task.getStatus() == FileDownloadStatus.completed) {
+        if (isFoucesRefresh) {
+            isFoucesRefresh = false;
             presenter.loadFinishedData();
         }
     }
@@ -230,7 +244,7 @@ public class FinishedFragment extends MvpFragment<DownloadView, DownloadPresente
 
     @Override
     public void showError(String message) {
-
+        showMessage(message, TastyToast.ERROR);
     }
 
     @Override

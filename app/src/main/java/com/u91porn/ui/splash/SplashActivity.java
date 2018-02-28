@@ -7,27 +7,25 @@ import android.text.TextUtils;
 import android.util.Base64;
 
 import com.orhanobut.logger.Logger;
-import com.trello.rxlifecycle2.LifecycleTransformer;
-import com.u91porn.MyApplication;
 import com.u91porn.R;
 import com.u91porn.data.NoLimit91PornServiceApi;
 import com.u91porn.data.model.User;
 import com.u91porn.ui.MvpActivity;
 import com.u91porn.ui.main.MainActivity;
 import com.u91porn.ui.user.UserPresenter;
+import com.u91porn.utils.AddressHelper;
 import com.u91porn.utils.HeaderUtils;
-import com.u91porn.utils.Keys;
 import com.u91porn.utils.SPUtils;
+import com.u91porn.utils.UserHelper;
+import com.u91porn.utils.constants.Keys;
 
-import io.rx_cache2.Reply;
-
+/**
+ * @author flymegoc
+ */
 public class SplashActivity extends MvpActivity<SplashView, SplashPresenter> implements SplashView {
 
     private static final String TAG = SplashActivity.class.getSimpleName();
-    private int retryTime = 3;
     private String password;
-    private String username;
-    private String captcha = "3124";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,14 +36,15 @@ public class SplashActivity extends MvpActivity<SplashView, SplashPresenter> imp
             //结束你的activity
             Logger.t(TAG).d("重复打开了....");
             finish();
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
             return;
         }
-        User user = MyApplication.getInstace().getUser();
-        if (user != null) {
+
+        if (UserHelper.isUserInfoComplete(user)) {
             startMain();
         }
         setContentView(R.layout.activity_splash);
-        username = (String) SPUtils.get(this, Keys.KEY_SP_USER_LOGIN_USERNAME, "");
+        String username = (String) SPUtils.get(this, Keys.KEY_SP_USER_LOGIN_USERNAME, "");
         String ep = (String) SPUtils.get(this, Keys.KEY_SP_USER_LOGIN_PASSWORD, "");
         if (!TextUtils.isEmpty(ep)) {
             password = new String(Base64.decode(ep.getBytes(), Base64.DEFAULT));
@@ -54,6 +53,7 @@ public class SplashActivity extends MvpActivity<SplashView, SplashPresenter> imp
         boolean isAutoLogin = (boolean) SPUtils.get(this, Keys.KEY_SP_USER_AUTO_LOGIN, false);
 
         if (!TextUtils.isEmpty(username) && !TextUtils.isEmpty(password) && isAutoLogin) {
+            String captcha = UserHelper.randomCaptcha();
             login(username, password, captcha);
         } else {
             startMain();
@@ -66,39 +66,40 @@ public class SplashActivity extends MvpActivity<SplashView, SplashPresenter> imp
         String acl = "Log In";
         String x = "47";
         String y = "12";
+        if (AddressHelper.getInstance().isEmpty(Keys.KEY_SP_CUSTOM_ADDRESS)) {
+            return;
+        }
         presenter.login(username, password, f, f2, captcha, acl, x, y, HeaderUtils.getUserHeader("login"));
     }
 
     private void startMain() {
         Intent intent = new Intent(this, MainActivity.class);
-        startActivityWithAnimotion(intent);
+        startActivity(intent);
         finish();
-        overridePendingTransition(android.R.anim.fade_in,android.R.anim.fade_out);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
     @NonNull
     @Override
     public SplashPresenter createPresenter() {
-        NoLimit91PornServiceApi noLimit91PornServiceApi = MyApplication.getInstace().getNoLimit91PornService();
-        UserPresenter userPresenter = new UserPresenter(noLimit91PornServiceApi,provider);
+        getActivityComponent().inject(this);
+        NoLimit91PornServiceApi noLimit91PornServiceApi = null;
+        if (!AddressHelper.getInstance().isEmpty(Keys.KEY_SP_CUSTOM_ADDRESS)) {
+            noLimit91PornServiceApi = apiManager.getNoLimit91PornService();
+        }
+        UserPresenter userPresenter = new UserPresenter(noLimit91PornServiceApi, provider);
         return new SplashPresenter(userPresenter);
     }
 
     @Override
-    public void loginSuccess() {
+    public void loginSuccess(User user) {
+        user.copyProperties(this.user);
         startMain();
     }
 
     @Override
     public void loginError(String message) {
-        //访问很容易超时，失败后重试
-        if (retryTime <= 3) {
-            retryTime++;
-            login(username, password, captcha);
-        } else {
-            startMain();
-        }
-
+        startMain();
     }
 
     @Override
@@ -117,7 +118,7 @@ public class SplashActivity extends MvpActivity<SplashView, SplashPresenter> imp
     }
 
     @Override
-    public void showMessage(String msg,int type) {
-        super.showMessage(msg,type);
+    public void showMessage(String msg, int type) {
+        super.showMessage(msg, type);
     }
 }

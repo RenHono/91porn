@@ -1,16 +1,14 @@
 package com.u91porn.ui.update;
 
+import android.arch.lifecycle.Lifecycle;
 import android.support.annotation.NonNull;
 
 import com.google.gson.Gson;
 import com.hannesdorfmann.mosby3.mvp.MvpBasePresenter;
-import com.orhanobut.logger.Logger;
 import com.trello.rxlifecycle2.LifecycleProvider;
-import com.trello.rxlifecycle2.android.ActivityEvent;
-import com.u91porn.MyApplication;
-import com.u91porn.data.NoLimit91PornServiceApi;
+import com.u91porn.data.GitHubServiceApi;
 import com.u91porn.data.model.UpdateVersion;
-import com.u91porn.utils.CallBackWrapper;
+import com.u91porn.rxjava.CallBackWrapper;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -27,13 +25,13 @@ import io.reactivex.schedulers.Schedulers;
 
 public class UpdatePresenter extends MvpBasePresenter<UpdateView> implements IUpdate {
 
-    private NoLimit91PornServiceApi noLimit91PornServiceApi;
+    private GitHubServiceApi gitHubServiceApi;
     private final static String CHECK_UPDATE_URL = "https://github.com/techGay/91porn/blob/master/version.txt";
     private Gson gson;
-    private LifecycleProvider<ActivityEvent> provider;
+    private LifecycleProvider<Lifecycle.Event> provider;
 
-    public UpdatePresenter(NoLimit91PornServiceApi noLimit91PornServiceApi, Gson gson, LifecycleProvider<ActivityEvent> provider) {
-        this.noLimit91PornServiceApi = noLimit91PornServiceApi;
+    public UpdatePresenter(GitHubServiceApi gitHubServiceApi, Gson gson, LifecycleProvider<Lifecycle.Event> provider) {
+        this.gitHubServiceApi = gitHubServiceApi;
         this.gson = gson;
         this.provider = provider;
     }
@@ -44,19 +42,18 @@ public class UpdatePresenter extends MvpBasePresenter<UpdateView> implements IUp
     }
 
     public void checkUpdate(final int versionCode, final UpdateListener updateListener) {
-        noLimit91PornServiceApi.checkUpdate(CHECK_UPDATE_URL)
+        gitHubServiceApi.checkUpdate(CHECK_UPDATE_URL)
                 .map(new Function<String, UpdateVersion>() {
                     @Override
                     public UpdateVersion apply(String s) throws Exception {
                         Document doc = Jsoup.parse(s);
                         String text = doc.select("table.highlight").text();
-                        Logger.d(text);
                         return gson.fromJson(text, UpdateVersion.class);
                     }
                 })
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .compose(provider.<UpdateVersion>bindUntilEvent(ActivityEvent.DESTROY))
+                .compose(provider.<UpdateVersion>bindUntilEvent(Lifecycle.Event.ON_DESTROY))
                 .subscribe(new CallBackWrapper<UpdateVersion>() {
                     @Override
                     public void onBegin(Disposable d) {
@@ -103,6 +100,11 @@ public class UpdatePresenter extends MvpBasePresenter<UpdateView> implements IUp
                                 }
                             });
                         }
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        super.onError(e);
                     }
                 });
     }
